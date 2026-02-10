@@ -2,5 +2,7 @@
 name = "little-sync"
 version = "1.0.1"
 edition = "2024"
+description = "A little rust crate that provides fastest sync types such as Mutex, RwLock and other"
+license = "MIT"
 
 [dependencies]
