@@ -1,18 +1,20 @@
 use core::{
-    sync::atomic::{Ordering, AtomicI32},
+    sync::atomic::{Ordering, AtomicU32},
     ops::{Deref, DerefMut},
     cell::UnsafeCell
 };
 use std::thread::yield_now;
 
+pub const LAST_BIT: u32 = 0x80_000_000;
+
 pub struct RwLock<T> {
-    state: AtomicI32,
+    state: AtomicU32,
     value: UnsafeCell<T>
 }
 impl<T> RwLock<T> {
     pub const fn new(value: T) -> Self {
         Self {
-            state: AtomicI32::new(0),
+            state: AtomicU32::new(0),
             value: UnsafeCell::new(value)
         }
     }
@@ -20,7 +22,7 @@ impl<T> RwLock<T> {
         while let Err(_) = self.state.fetch_update(
             Ordering::Relaxed,
             Ordering::Relaxed,
-            |state| if state == -1 {None} else {Some(state + 1)}
+            |state| if state & LAST_BIT == 0 {Some(state + 1)} else {None}
         ) {yield_now();}
         RwLockReadGuard {
             lock: self
@@ -30,8 +32,9 @@ impl<T> RwLock<T> {
         while let Err(_) = self.state.fetch_update(
             Ordering::Relaxed,
             Ordering::Relaxed,
-            |state| if state == 0 {Some(-1)} else {None}
+            |state| if state & LAST_BIT == 0 {Some(state | LAST_BIT)} else {None}
         ) {yield_now();}
+        while self.state.load(Ordering::Relaxed) != LAST_BIT {yield_now();}
         RwLockWriteGuard {
             lock: self
         }
